@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OECD Health Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+  <h1>OECD Health Visualisation Dashboard</h1>
+  <p>This dashboard displays Australian regional health data using OECD datasets. Visualisations include healthcare resources, outcome trends, and a spending-outcome correlation.</p>
+
+  <!-- Chart 1 -->
+  <h2>Chart 1: Health Resources (Stacked Bar Chart)</h2>
+  <div id="chart1"></div>
+
+  <!-- Chart 2 -->
+  <h2>Chart 2: Health Outcomes Over Time (Line Chart)</h2>
+  <div id="chart2"></div>
+
+  <!-- Chart 3 -->
+  <h2>Chart 3: Spending vs Health Outcomes (Scatter Plot)</h2>
+  <div id="chart3"></div>
+
+  <script>
+  // Chart 1: Stacked Bar from data1.csv
+  // Chart 1: Stacked Bar from data1.csv
+d3.csv("data1.csv").then(function(data) {
+  // Filter: Australia + valid numeric values
+  data = data.filter(d => d.Country === "Austria" && d['Observation value'] && !isNaN(+d['Observation value']));
+
+
+  // Pick top 3 most frequent "Unit of measure" as indicators
+  const measureCounts = {};
+  data.forEach(d => {
+    const m = d['Unit of measure'];
+    if (m) measureCounts[m] = (measureCounts[m] || 0) + 1;
+  });
+  const indicators = Object.keys(measureCounts).sort((a, b) => measureCounts[b] - measureCounts[a]).slice(0, 3);
+
+  const regions = Array.from(new Set(data.map(d => d['Reference area'])));
+  const stackedData = regions.map(region => {
+    const row = { region: region };
+    indicators.forEach(indicator => {
+      const entry = data.find(d =>
+        d['Reference area'] === region &&
+        d['Unit of measure'] === indicator &&
+        !isNaN(+d['Observation value'])
+      );
+      row[indicator] = entry ? +entry['Observation value'] : 0;
+    });
+    return row;
+  });
+
+  const margin = { top: 30, right: 20, bottom: 60, left: 60 },
+        width = 800 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
+
+  const svg = d3.select("#chart1").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  const x = d3.scaleBand().domain(regions).range([0, width]).padding(0.2);
+  const y = d3.scaleLinear()
+    .domain([0, d3.max(stackedData, d => indicators.reduce((sum, k) => sum + d[k], 0))])
+    .nice().range([height, 0]);
+  const color = d3.scaleOrdinal().domain(indicators).range(d3.schemeSet2);
+
+  const stack = d3.stack().keys(indicators);
+  const series = stack(stackedData);
+
+  svg.append("g")
+    .selectAll("g")
+    .data(series)
+    .join("g")
+    .attr("fill", d => color(d.key))
+    .selectAll("rect")
+    .data(d => d)
+    .join("rect")
+    .attr("x", d => x(d.data.region))
+    .attr("y", d => y(d[1]))
+    .attr("height", d => y(d[0]) - y(d[1]))
+    .attr("width", x.bandwidth());
+
+  svg.append("g")
+    .attr("transform", `translate(0,${height})`)
+    .call(d3.axisBottom(x))
+    .selectAll("text")
+    .attr("transform", "rotate(-45)")
+    .style("text-anchor", "end");
+
+  svg.append("g").call(d3.axisLeft(y));
+  console.log("Chart 2 data:", data);
+});
+
+
+  <!-- Chart 2: Line Chart -->
+d3.csv("data3.csv").then(function(data) {
+  data = data.filter(d => d.Country === "Australia" && d['OBS_VALUE'] && d.MEASURE === "LFEXP");
+
+  const margin = {top: 30, right: 30, bottom: 50, left: 60},
+        width = 800 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
+
+  const svg = d3.select("#chart2").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  const regions = Array.from(new Set(data.map(d => d['Reference area'])));
+  const x = d3.scaleLinear()
+    .domain(d3.extent(data, d => +d.TIME_PERIOD))
+    .range([0, width]);
+  const y = d3.scaleLinear()
+    .domain(d3.extent(data, d => +d.OBS_VALUE))
+    .range([height, 0]);
+  const color = d3.scaleOrdinal().domain(regions).range(d3.schemeTableau10);
+
+  svg.append("g")
+    .attr("transform", `translate(0,${height})`)
+    .call(d3.axisBottom(x).tickFormat(d3.format("d")));
+  svg.append("g").call(d3.axisLeft(y));
+
+  const line = d3.line()
+    .x(d => x(+d.TIME_PERIOD))
+    .y(d => y(+d.OBS_VALUE));
+
+  regions.forEach(region => {
+    const regionData = data.filter(d => d['Reference area'] === region);
+    svg.append("path")
+      .datum(regionData)
+      .attr("fill", "none")
+      .attr("stroke", color(region))
+      .attr("stroke-width", 2)
+      .attr("d", line);
+  });
+
+  console.log("Chart 2 data:", data);
+});
+
+  // Chart 3: Scatter Plot from data2.csv + data3.csv
+  <!-- Chart 3: Bar Chart Using data2.csv Only -->
+d3.csv("data2.csv").then(function(data) {
+  data = data.filter(d => d.Country === "Australia" && d['OBS_VALUE']);
+
+  // Keep only latest year per region
+  const grouped = {};
+  data.forEach(d => {
+    const key = d['Reference area'];
+    if (!grouped[key] || +d.TIME_PERIOD > +grouped[key].TIME_PERIOD) {
+      grouped[key] = d;
+    }
+  });
+
+  const filtered = Object.values(grouped);
+  const margin = {top: 30, right: 30, bottom: 60, left: 80},
+        width = 800 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
+
+  const svg = d3.select("#chart3").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  const x = d3.scaleBand()
+    .domain(filtered.map(d => d['Reference area']))
+    .range([0, width])
+    .padding(0.2);
+  const y = d3.scaleLog()
+  .domain([1, d3.max(filtered, d => +d.OBS_VALUE)])
+  .range([height, 0]);
+
+
+  svg.append("g")
+    .attr("transform", `translate(0,${height})`)
+    .call(d3.axisBottom(x))
+    .selectAll("text")
+    .attr("transform", "rotate(-45)")
+    .style("text-anchor", "end");
+
+  svg.append("g").call(d3.axisLeft(y));
+
+  svg.selectAll("rect")
+    .data(filtered)
+    .join("rect")
+    .attr("x", d => x(d['Reference area']))
+    .attr("y", d => y(+d.OBS_VALUE))
+    .attr("height", d => height - y(+d.OBS_VALUE))
+    .attr("width", x.bandwidth())
+    .attr("fill", "steelblue");
+
+  console.log("Chart 3 data:", filtered);
+});
+
+  </script>
+</body>
+</html>
