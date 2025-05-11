@@ -12,10 +12,10 @@ The visualisation is created using *D3.js* and it will be hosted on the Swinburn
 
 The repository is organised by the following structure:
 
-- **data/**: It contains the datasets from the OECD Health Statistics.
-- **code/**: This includes all the scripts for data cleaning, visualisation, and analysis using D3.js.
-- **docs/*: This contains documentation, including the **Project Process Book* and design notes.
-- **README.md**: Is the project overview and repository details.
+- **data/**: It contains all the datasets from the OECD Health Statistics.
+- **code/**: This includes all the scripts for data cleaning, visualisation, and the analysis using D3.js.
+- **docs/*: This contains documentation which inclues the **Project Process Book* 
+- **README.md**: Is the project overview and gives the repository details.
 
 ## Technologies Used
 
