@@ -25,11 +25,15 @@
   <!-- Chart 3 -->
   <h2>Chart 3: Spending by Region (Bar Chart)</h2>
   <label for="measureFilter3">Select Measure:</label>
-  <select id="measureFilter3"></select>
+  <select id="measureFilter3">
+    <option value="NURSES_P">NURSES_P</option>
+    <option value="H_DISCHARGE_T">H_DISCHARGE_T</option>
+    <option value="DOC">DOC</option>
+  </select>
   <div id="chart3"></div>
 
   <script>
-  // Chart 1
+  // Chart 1: Stacked Bar with Country Filter
   d3.csv("data1.csv").then(function(data) {
     const countrySelect = d3.select("#countryFilter1");
     const countries = Array.from(new Set(data.map(d => d.Country))).sort();
@@ -48,10 +52,7 @@
       const stackedData = regions.map(region => {
         const row = { region: region };
         indicators.forEach(indicator => {
-          const entry = filtered.find(d =>
-            d['Reference area'] === region &&
-            d['Unit of measure'] === indicator
-          );
+          const entry = filtered.find(d => d['Reference area'] === region && d['Unit of measure'] === indicator);
           row[indicator] = entry ? +entry['Observation value'] : 0;
         });
         return row;
@@ -85,9 +86,13 @@
         .data(d => d)
         .join("rect")
         .attr("x", d => x(d.data.region))
+        .attr("y", height)
+        .attr("height", 0)
+        .attr("width", x.bandwidth())
+        .transition()
+        .duration(800)
         .attr("y", d => y(d[1]))
-        .attr("height", d => y(d[0]) - y(d[1]))
-        .attr("width", x.bandwidth());
+        .attr("height", d => y(d[0]) - y(d[1]));
 
       svg.append("g")
         .attr("transform", `translate(0,${height})`)
@@ -99,14 +104,11 @@
       svg.append("g").call(d3.axisLeft(y));
     };
 
-    countrySelect.on("change", function() {
-      drawChart1(this.value);
-    });
-
-    drawChart1("Australia"); // default
+    countrySelect.on("change", function() { drawChart1(this.value); });
+    drawChart1("Australia");
   });
 
-  // Chart 2
+  // Chart 2: Line Chart with Measure Filter
   d3.csv("data3.csv").then(function(data) {
     const measureSelect = d3.select("#measureFilter2");
     const measures = Array.from(new Set(data.map(d => d.MEASURE))).sort();
@@ -127,22 +129,17 @@
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
       const regions = Array.from(new Set(filtered.map(d => d['Reference area'])));
-      const x = d3.scaleLinear()
-        .domain(d3.extent(filtered, d => +d.TIME_PERIOD))
-        .range([0, width]);
-      const y = d3.scaleLinear()
-        .domain(d3.extent(filtered, d => +d.OBS_VALUE))
-        .range([height, 0]);
+      const x = d3.scaleLinear().domain(d3.extent(filtered, d => +d.TIME_PERIOD)).range([0, width]);
+      const y = d3.scaleLinear().domain(d3.extent(filtered, d => +d.OBS_VALUE)).range([height, 0]);
       const color = d3.scaleOrdinal().domain(regions).range(d3.schemeTableau10);
 
       svg.append("g")
         .attr("transform", `translate(0,${height})`)
         .call(d3.axisBottom(x).tickFormat(d3.format("d")));
+
       svg.append("g").call(d3.axisLeft(y));
 
-      const line = d3.line()
-        .x(d => x(+d.TIME_PERIOD))
-        .y(d => y(+d.OBS_VALUE));
+      const line = d3.line().x(d => x(+d.TIME_PERIOD)).y(d => y(+d.OBS_VALUE));
 
       regions.forEach(region => {
         const regionData = filtered.filter(d => d['Reference area'] === region);
@@ -155,19 +152,13 @@
       });
     };
 
-    measureSelect.on("change", function() {
-      drawChart2(this.value);
-    });
-
-    drawChart2("LFEXP"); // default
+    measureSelect.on("change", function() { drawChart2(this.value); });
+    drawChart2("LFEXP");
   });
 
-  // Chart 3
+  // Chart 3: Bar Chart with Measure Filter
   d3.csv("data2.csv").then(function(data) {
     const measureSelect = d3.select("#measureFilter3");
-    const measures = Array.from(new Set(data.map(d => d.MEASURE))).sort();
-    measures.forEach(m => measureSelect.append("option").text(m).attr("value", m));
-
     const drawChart3 = (measure) => {
       d3.select("#chart3").html("");
       const filtered = data.filter(d => d.Country === "Australia" && d.MEASURE === measure && d.OBS_VALUE);
@@ -179,6 +170,7 @@
           grouped[key] = d;
         }
       });
+
       const latest = Object.values(grouped);
 
       const margin = {top: 30, right: 30, bottom: 60, left: 80},
@@ -195,6 +187,7 @@
         .domain(latest.map(d => d['Reference area']))
         .range([0, width])
         .padding(0.2);
+
       const y = d3.scaleLog()
         .domain([1, d3.max(latest, d => +d.OBS_VALUE)])
         .range([height, 0]);
@@ -212,17 +205,18 @@
         .data(latest)
         .join("rect")
         .attr("x", d => x(d['Reference area']))
-        .attr("y", d => y(+d.OBS_VALUE))
-        .attr("height", d => height - y(+d.OBS_VALUE))
+        .attr("y", height)
+        .attr("height", 0)
         .attr("width", x.bandwidth())
-        .attr("fill", "steelblue");
+        .attr("fill", "steelblue")
+        .transition()
+        .duration(1000)
+        .attr("y", d => y(+d.OBS_VALUE))
+        .attr("height", d => height - y(+d.OBS_VALUE));
     };
 
-    measureSelect.on("change", function() {
-      drawChart3(this.value);
-    });
-
-    drawChart3("TOTEXP"); // default
+    measureSelect.on("change", function() { drawChart3(this.value); });
+    drawChart3(document.getElementById("measureFilter3").value);
   });
   </script>
 </body>
